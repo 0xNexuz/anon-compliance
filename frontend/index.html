@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AnonCompliance | Private compliance for Stellar</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="scroll-progress" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="AnonCompliance home">
+        <span class="brand-mark"><img src="/assets/logo.svg" alt="" /></span>
+        <span>AnonCompliance</span>
+      </a>
+      <nav>
+        <a href="#flow">Flow</a>
+        <a href="#contract">Contract</a>
+        <a href="#demo">Demo</a>
+      </nav>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode">
+        <span class="theme-dot"></span>
+        <span id="theme-label">Dark</span>
+      </button>
+    </header>
+
+    <main id="top">
+      <section class="hero section-frame reveal">
+        <div class="hero-copy">
+          <img class="hero-logo" src="/assets/logo.svg" alt="AnonCompliance logo" />
+          <p class="eyebrow">Real-world ZK on Stellar testnet</p>
+          <h1>Comply without revealing the person.</h1>
+          <p class="lede">
+            A private compliance gate for stablecoin transfers, tokenized assets,
+            and regulated settlement flows on Stellar.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#demo">Generate proof</a>
+            <a class="button ghost" id="lab-link" target="_blank" rel="noreferrer">View contract</a>
+          </div>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="dossier-card card-a">
+            <span>Credential</span>
+            <strong>KYC: pass</strong>
+            <em>hidden</em>
+          </div>
+          <div class="dossier-card card-b">
+            <span>ZK proof</span>
+            <strong>policy match</strong>
+            <em>public</em>
+          </div>
+          <div class="dossier-card card-c">
+            <span>Stellar</span>
+            <strong>attestation</strong>
+            <em>testnet</em>
+          </div>
+          <div class="proof-ring"></div>
+        </div>
+      </section>
+
+      <section id="flow" class="flow section-frame reveal">
+        <div class="section-kicker">Proof flow</div>
+        <h2>Only the compliance result reaches chain.</h2>
+        <div class="flow-grid stagger">
+          <article>
+            <span>01</span>
+            <h3>Private credential</h3>
+            <p>User keeps identity, jurisdiction, KYC status, and limits off-chain.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Proof generated</h3>
+            <p>The frontend creates a demo proof commitment against the active policy.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Contract verifies</h3>
+            <p>Stellar records a nullifier and attestation only after verification passes.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="contract" class="contract-panel section-frame reveal">
+        <div class="contract-copy">
+          <p class="eyebrow">Live deployment</p>
+          <h2>Already deployed on Stellar testnet.</h2>
+          <p>
+            The app is wired to the deployed AnonCompliance contract and the
+            initialized policy/verifier hashes.
+          </p>
+        </div>
+        <div class="terminal-card reveal-card">
+          <div class="terminal-top">
+            <span></span><span></span><span></span>
+          </div>
+          <dl>
+            <dt>Network</dt>
+            <dd id="network">loading</dd>
+          <dt>Contract</dt>
+          <dd id="contract-id">loading</dd>
+          <dt>Groth16 verifier</dt>
+          <dd id="groth16-id">loading</dd>
+          <dt>Policy hash</dt>
+          <dd id="policy-hash">loading</dd>
+            <dt>Verifier hash</dt>
+            <dd id="verifier-hash">loading</dd>
+          </dl>
+          <button class="button ghost wide" id="refresh-status">Refresh chain state</button>
+        </div>
+      </section>
+
+      <section id="demo" class="demo section-frame reveal">
+        <div class="demo-head">
+          <div>
+            <p class="eyebrow">Interactive demo</p>
+            <h2>Generate a private compliance proof.</h2>
+          </div>
+          <p>
+            Submissions now pass through a deployed Groth16 verifier contract
+            before the compliance attestation is written to Stellar testnet.
+          </p>
+        </div>
+
+        <div class="proof-workbench stagger">
+          <form id="proof-form" class="proof-form">
+            <label>
+              Compliance policy
+              <select id="policy-choice">
+                <option value="kyc">KYC passed + transfer allowed</option>
+                <option value="sanctions">Not on sanctions list</option>
+                <option value="rwa">Eligible RWA participant</option>
+              </select>
+            </label>
+            <label>
+              Private subject note
+              <input id="subject-note" value="demo-user-001" maxlength="64" />
+            </label>
+            <div class="button-row">
+              <button class="button primary" type="button" id="generate-proof">Generate proof</button>
+              <button class="button dark" type="submit">Submit to testnet</button>
+            </div>
+          </form>
+
+          <div class="proof-output">
+            <div class="hash-row">
+              <span>Subject commitment</span>
+              <code id="subject-commitment">waiting</code>
+            </div>
+            <div class="hash-row">
+              <span>Public input hash</span>
+              <code id="public-input-hash">waiting</code>
+            </div>
+            <div class="hash-row">
+              <span>Nullifier</span>
+              <code id="nullifier">waiting</code>
+            </div>
+            <div class="hash-row">
+              <span>Proof hash</span>
+              <code id="proof-hash">waiting</code>
+            </div>
+            <div id="submit-result" class="submit-result">Generate a proof to begin.</div>
+            <div id="explorer-receipt" class="explorer-receipt" hidden>
+              <span>Explorer receipt</span>
+              <a id="proof-tx-link" target="_blank" rel="noreferrer">Proof verification tx</a>
+              <a id="attestation-tx-link" target="_blank" rel="noreferrer">Compliance attestation tx</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="use-cases section-frame reveal">
+        <div class="side-note">Designed for regulated value movement.</div>
+        <div class="use-case-grid stagger">
+          <article>
+            <h3>Private stablecoin limits</h3>
+            <p>Prove a transfer is policy-compliant without exposing the user's full profile.</p>
+          </article>
+          <article>
+            <h3>RWA eligibility</h3>
+            <p>Gate tokenized asset interactions behind private investor or jurisdiction proofs.</p>
+          </article>
+          <article>
+            <h3>Institutional settlement</h3>
+            <p>Record only attestations and nullifiers while keeping sensitive checks off-chain.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="final-cta section-frame reveal">
+        <p class="eyebrow">Hackathon path</p>
+        <h2>Private proof. Public trust.</h2>
+        <p>
+          AnonCompliance lets institutions check what matters without exposing
+          the person behind the wallet.
+        </p>
+        <a class="button primary" href="#demo">Run the proof demo</a>
+      </section>
+
+      <section id="docs" class="docs section-frame reveal">
+        <div>
+          <p class="eyebrow">Project docs</p>
+          <h2>How the demo works.</h2>
+        </div>
+        <div class="docs-grid stagger">
+          <article>
+            <span>01</span>
+            <h3>Generate proof data</h3>
+            <p>
+              The frontend creates commitments, a nullifier, and a proof payload
+              for the selected compliance policy.
+            </p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Verify ZK on Stellar</h3>
+            <p>
+              The backend calls the deployed Groth16 verifier contract and sends
+              that verification to testnet so users can inspect the proof tx.
+            </p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Record attestation</h3>
+            <p>
+              If verification passes, AnonCompliance records a nullifier and
+              compliance attestation on Stellar testnet.
+            </p>
+          </article>
+        </div>
+        <div class="docs-note">
+          <strong>Current caveat:</strong> the Groth16 verifier is real, while the
+          included circuit is the Stellar sample circuit. The product path is to
+          replace it with an AnonCompliance-specific KYC, sanctions, or RWA
+          eligibility circuit.
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <a class="brand" href="#top" aria-label="AnonCompliance home">
+          <span class="brand-mark"><img src="/assets/logo.svg" alt="" /></span>
+          <span>AnonCompliance</span>
+        </a>
+        <p>Private proof. Public trust.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#docs">Docs</a>
+        <a href="#demo">Demo</a>
+        <a id="footer-contract-link" target="_blank" rel="noreferrer">Contract</a>
+      </div>
+    </footer>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

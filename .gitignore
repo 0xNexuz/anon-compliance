@@ -1,0 +1,7 @@
+/target/
+/.stellar/
+/node_modules/
+/work/soroban-examples/
+/work/zk-export/target/
+*.wasm
+*.log

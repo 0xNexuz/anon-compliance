@@ -1,0 +1,33 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/config",
+      "destination": "/api/config"
+    },
+    {
+      "source": "/api/status",
+      "destination": "/api/status"
+    },
+    {
+      "source": "/api/submit",
+      "destination": "/api/submit"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/frontend/assets/$1"
+    },
+    {
+      "source": "/styles.css",
+      "destination": "/frontend/styles.css"
+    },
+    {
+      "source": "/app.js",
+      "destination": "/frontend/app.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
+    }
+  ]
+}
