@@ -15,7 +15,10 @@ const els = {
   proofForm: document.querySelector("#proof-form"),
   policyChoice: document.querySelector("#policy-choice"),
   subjectNote: document.querySelector("#subject-note"),
+  kycPassed: document.querySelector("#kyc-passed"),
+  sanctionsClear: document.querySelector("#sanctions-clear"),
   signingMode: document.querySelectorAll("input[name='signing-mode']"),
+  submitButton: document.querySelector("#proof-form button[type='submit']"),
   subjectCommitment: document.querySelector("#subject-commitment"),
   publicInputHash: document.querySelector("#public-input-hash"),
   nullifier: document.querySelector("#nullifier"),
@@ -38,6 +41,10 @@ await generateProof();
 els.refreshStatus.addEventListener("click", refreshStatus);
 els.generateProof.addEventListener("click", generateProof);
 els.proofForm.addEventListener("submit", submitProof);
+els.policyChoice.addEventListener("change", generateProof);
+els.subjectNote.addEventListener("input", debounce(generateProof, 250));
+els.kycPassed.addEventListener("change", generateProof);
+els.sanctionsClear.addEventListener("change", generateProof);
 
 function bindThemeToggle() {
   const storedTheme = localStorage.getItem("anoncompliance-theme");
@@ -104,7 +111,7 @@ async function refreshStatus() {
       els.verifierHash.textContent = cleanCliBytes(status.verifierHash) || config.verifierHash;
     }
   } catch {
-    els.submitResult.textContent = "Could not refresh chain state, using local config.";
+    setResult("Could not refresh chain state, using local config.", "error");
   } finally {
     els.refreshStatus.disabled = false;
     els.refreshStatus.textContent = "Refresh chain state";
@@ -112,9 +119,15 @@ async function refreshStatus() {
 }
 
 async function generateProof() {
-  const policyText = `${els.policyChoice.value}:${els.subjectNote.value}`;
+  const eligible = els.kycPassed.checked && els.sanctionsClear.checked;
+  const privateCriteria = `kyc:${Number(els.kycPassed.checked)}|sanctions:${Number(
+    els.sanctionsClear.checked
+  )}`;
+  const policyText = `${els.policyChoice.value}:${els.subjectNote.value}:${privateCriteria}`;
   const subjectCommitment = await sha256Hex(utf8(`subject:${policyText}`));
-  const publicInputHash = await sha256Hex(utf8(`policy:${els.policyChoice.value}`));
+  const publicInputHash = await sha256Hex(
+    utf8(`policy:${els.policyChoice.value}:eligible:${Number(eligible)}`)
+  );
   const nullifier = await sha256Hex(crypto.getRandomValues(new Uint8Array(32)));
 
   const proofHash = await sha256Hex(
@@ -132,22 +145,34 @@ async function generateProof() {
     publicInputHash,
     nullifier,
     proofHash,
+    eligible,
   };
 
   renderProof(currentProof);
   els.explorerReceipt.hidden = true;
-  els.submitResult.textContent = "Proof generated locally. Ready to submit to Stellar testnet.";
+  setResult(
+    eligible
+      ? "Proof generated locally. Ready to submit to Stellar testnet."
+      : "Proof generated, but this subject is not eligible. Turn on both private checks before submitting.",
+    eligible ? "success" : "error"
+  );
 }
 
 async function submitProof(event) {
   event.preventDefault();
   if (!currentProof) await generateProof();
+  if (!currentProof.eligible) {
+    setResult("Submission blocked locally: KYC passed and Sanctions clear must both be true.", "error");
+    return;
+  }
 
   const mode = [...els.signingMode].find((input) => input.checked)?.value || "serverless";
-  els.submitResult.textContent =
+  setBusy(true);
+  setResult(
     mode === "wallet"
       ? "Preparing wallet-signed Stellar transactions..."
-      : "Submitting transaction to Stellar testnet...";
+      : "Submitting transaction to Stellar testnet..."
+  );
 
   let result;
   try {
@@ -157,14 +182,19 @@ async function submitProof(event) {
         : await submitWithHostedSigner(currentProof);
   } catch (error) {
     result = { ok: false, message: error.message };
+  } finally {
+    setBusy(false);
   }
 
   if (!result.ok) {
-    els.submitResult.textContent = `${result.message}\n${result.detail || ""}`;
+    setResult(`${result.message}\n${result.detail || ""}`, "error");
     return;
   }
 
-  els.submitResult.innerHTML = `Groth16 verified: ${result.groth16Output}. Attestation accepted on testnet.`;
+  setResult(
+    `Groth16 verified: ${result.groth16Output}. Attestation accepted on testnet.`,
+    "success"
+  );
   renderExplorerReceipt(result);
 }
 
@@ -185,7 +215,7 @@ async function submitWithWallet(proof) {
   const proofBuild = await postJson("/api/build-proof-xdr", { publicKey });
   if (!proofBuild.ok) return proofBuild;
 
-  els.submitResult.textContent = "Please sign the Groth16 proof verification transaction.";
+  setResult("Please sign the Groth16 proof verification transaction.");
   const signedProofXdr = await signWalletTransaction(wallet, proofBuild.xdr, publicKey);
   const proofSubmit = await postJson("/api/submit-signed", {
     signedXdr: signedProofXdr,
@@ -205,7 +235,7 @@ async function submitWithWallet(proof) {
   });
   if (!attestationBuild.ok) return attestationBuild;
 
-  els.submitResult.textContent = "Please sign the compliance attestation transaction.";
+  setResult("Please sign the compliance attestation transaction.");
   const signedAttestationXdr = await signWalletTransaction(
     wallet,
     attestationBuild.xdr,
@@ -299,6 +329,18 @@ function renderProof(proof) {
   els.proofHash.textContent = proof.proofHash;
 }
 
+function setBusy(isBusy) {
+  els.submitButton.disabled = isBusy;
+  els.generateProof.disabled = isBusy;
+  els.submitButton.textContent = isBusy ? "Working on testnet..." : "Submit to testnet";
+}
+
+function setResult(message, state = "") {
+  els.submitResult.textContent = message.trim();
+  els.submitResult.classList.toggle("success", state === "success");
+  els.submitResult.classList.toggle("error", state === "error");
+}
+
 async function fetchJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
@@ -335,4 +377,12 @@ function concatHex(parts) {
 function cleanCliBytes(value) {
   const match = String(value).match(/[0-9a-fA-F]{64}/);
   return match ? match[0] : "";
+}
+
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
 }

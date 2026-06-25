@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#demo">Skip to demo</a>
     <div class="scroll-progress" aria-hidden="true"></div>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="AnonCompliance home">
@@ -17,6 +18,8 @@
         <a href="#flow">Flow</a>
         <a href="#contract">Contract</a>
         <a href="#demo">Demo</a>
+        <a href="#readiness">Readiness</a>
+        <a href="#docs">Docs</a>
       </nav>
       <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode">
         <span class="theme-dot"></span>
@@ -34,6 +37,11 @@
             A private compliance gate for stablecoin transfers, tokenized assets,
             and regulated settlement flows on Stellar.
           </p>
+          <div class="trust-strip" aria-label="Build status">
+            <span>Stellar testnet live</span>
+            <span>Groth16 verifier call</span>
+            <span>Explorer receipts</span>
+          </div>
           <div class="hero-actions">
             <a class="button primary" href="#demo">Generate proof</a>
             <a class="button ghost" id="lab-link" target="_blank" rel="noreferrer">View contract</a>
@@ -70,8 +78,8 @@
           </article>
           <article>
             <span>02</span>
-            <h3>Proof generated</h3>
-            <p>The frontend creates a demo proof commitment against the active policy.</p>
+            <h3>Proof prepared</h3>
+            <p>The demo prepares commitments and sends a Groth16 verification transaction first.</p>
           </article>
           <article>
             <span>03</span>
@@ -105,6 +113,8 @@
           <dd id="policy-hash">loading</dd>
             <dt>Verifier hash</dt>
             <dd id="verifier-hash">loading</dd>
+            <dt>Production status</dt>
+            <dd>testnet MVP, not mainnet audited</dd>
           </dl>
           <button class="button ghost wide" id="refresh-status">Refresh chain state</button>
         </div>
@@ -118,7 +128,9 @@
           </div>
           <p>
             Submissions now pass through a deployed Groth16 verifier contract
-            before the compliance attestation is written to Stellar testnet.
+            before the compliance attestation is written to Stellar testnet. The
+            current verifier artifact is the Stellar sample circuit, with an
+            AnonCompliance circuit spec included as the next production step.
           </p>
         </div>
 
@@ -134,17 +146,27 @@
             </label>
             <label>
               Private subject note
-              <input id="subject-note" value="demo-user-001" maxlength="64" />
+              <input id="subject-note" value="demo-user-001" maxlength="64" autocomplete="off" />
             </label>
+            <div class="criteria-grid" aria-label="Private compliance criteria">
+              <label>
+                <input id="kyc-passed" type="checkbox" checked />
+                KYC passed
+              </label>
+              <label>
+                <input id="sanctions-clear" type="checkbox" checked />
+                Sanctions clear
+              </label>
+            </div>
             <fieldset class="signing-mode">
               <legend>Signing mode</legend>
               <label>
                 <input type="radio" name="signing-mode" value="serverless" checked />
-                Hosted signer
+                <span>Hosted signer <em>fast testnet demo</em></span>
               </label>
               <label>
                 <input type="radio" name="signing-mode" value="wallet" />
-                Wallet signing
+                <span>Wallet signing <em>user signs XDR</em></span>
               </label>
             </fieldset>
             <div class="button-row">
@@ -170,13 +192,42 @@
               <span>Proof hash</span>
               <code id="proof-hash">waiting</code>
             </div>
-            <div id="submit-result" class="submit-result">Generate a proof to begin.</div>
+            <div id="submit-result" class="submit-result" aria-live="polite">Generate a proof to begin.</div>
             <div id="explorer-receipt" class="explorer-receipt" hidden>
               <span>Explorer receipt</span>
               <a id="proof-tx-link" target="_blank" rel="noreferrer">Proof verification tx</a>
               <a id="attestation-tx-link" target="_blank" rel="noreferrer">Compliance attestation tx</a>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section id="readiness" class="readiness section-frame reveal">
+        <div>
+          <p class="eyebrow">Production readiness</p>
+          <h2>What is real, and what must harden next.</h2>
+        </div>
+        <div class="readiness-grid stagger">
+          <article class="ready-card pass">
+            <span>Live now</span>
+            <h3>Testnet verification path</h3>
+            <p>Hosted signer and wallet XDR flows submit real transactions to Stellar testnet.</p>
+          </article>
+          <article class="ready-card pass">
+            <span>Live now</span>
+            <h3>Explorer audit trail</h3>
+            <p>Every successful run returns separate links for proof verification and attestation.</p>
+          </article>
+          <article class="ready-card warn">
+            <span>Next step</span>
+            <h3>Compliance circuit swap</h3>
+            <p>Replace the sample Groth16 circuit with the documented KYC and sanctions circuit before calling it production ZK compliance.</p>
+          </article>
+          <article class="ready-card warn">
+            <span>Next step</span>
+            <h3>Security review</h3>
+            <p>Audit the circuit, signer custody, replay/nullifier handling, and policy upgrade controls before mainnet.</p>
+          </article>
         </div>
       </section>
 
@@ -218,8 +269,8 @@
             <span>01</span>
             <h3>Generate proof data</h3>
             <p>
-              The frontend creates commitments, a nullifier, and a proof payload
-              for the selected compliance policy.
+              The frontend creates policy commitments, a nullifier, and a proof
+              payload for the selected compliance policy.
             </p>
           </article>
           <article>
@@ -240,10 +291,13 @@
           </article>
         </div>
         <div class="docs-note">
-          <strong>Current caveat:</strong> the Groth16 verifier is real, while the
-          included circuit is the Stellar sample circuit. The product path is to
-          replace it with an AnonCompliance-specific KYC, sanctions, or RWA
-          eligibility circuit.
+          <strong>Current caveat:</strong> testnet submissions and verifier calls are
+          real, while the embedded Groth16 circuit artifact is still the Stellar
+          sample circuit. The production circuit should prove private
+          <code>kycPassed</code>, <code>sanctionsClear</code>, and
+          <code>userSecret</code> inputs, then expose only
+          <code>policyHash</code>, <code>nullifier</code>, and
+          <code>eligible = 1</code>.
         </div>
       </section>
     </main>
