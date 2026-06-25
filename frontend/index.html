@@ -136,6 +136,17 @@
               Private subject note
               <input id="subject-note" value="demo-user-001" maxlength="64" />
             </label>
+            <fieldset class="signing-mode">
+              <legend>Signing mode</legend>
+              <label>
+                <input type="radio" name="signing-mode" value="serverless" checked />
+                Hosted signer
+              </label>
+              <label>
+                <input type="radio" name="signing-mode" value="wallet" />
+                Wallet signing
+              </label>
+            </fieldset>
             <div class="button-row">
               <button class="button primary" type="button" id="generate-proof">Generate proof</button>
               <button class="button dark" type="submit">Submit to testnet</button>

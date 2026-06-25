@@ -451,6 +451,34 @@ label {
   font-weight: 680;
 }
 
+.signing-mode {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.signing-mode legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.signing-mode label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink);
+}
+
+.signing-mode input {
+  width: auto;
+}
+
 input,
 select {
   width: 100%;

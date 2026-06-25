@@ -15,6 +15,7 @@ const els = {
   proofForm: document.querySelector("#proof-form"),
   policyChoice: document.querySelector("#policy-choice"),
   subjectNote: document.querySelector("#subject-note"),
+  signingMode: document.querySelectorAll("input[name='signing-mode']"),
   subjectCommitment: document.querySelector("#subject-commitment"),
   publicInputHash: document.querySelector("#public-input-hash"),
   nullifier: document.querySelector("#nullifier"),
@@ -142,15 +143,22 @@ async function submitProof(event) {
   event.preventDefault();
   if (!currentProof) await generateProof();
 
-  els.submitResult.textContent = "Submitting transaction to Stellar testnet...";
+  const mode = [...els.signingMode].find((input) => input.checked)?.value || "serverless";
+  els.submitResult.textContent =
+    mode === "wallet"
+      ? "Preparing wallet-signed Stellar transactions..."
+      : "Submitting transaction to Stellar testnet...";
 
-  const response = await fetch("/api/submit", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(currentProof),
-  });
+  let result;
+  try {
+    result =
+      mode === "wallet"
+        ? await submitWithWallet(currentProof)
+        : await submitWithHostedSigner(currentProof);
+  } catch (error) {
+    result = { ok: false, message: error.message };
+  }
 
-  const result = await response.json();
   if (!result.ok) {
     els.submitResult.textContent = `${result.message}\n${result.detail || ""}`;
     return;
@@ -158,6 +166,110 @@ async function submitProof(event) {
 
   els.submitResult.innerHTML = `Groth16 verified: ${result.groth16Output}. Attestation accepted on testnet.`;
   renderExplorerReceipt(result);
+}
+
+async function submitWithHostedSigner(proof) {
+  const response = await fetch("/api/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(proof),
+  });
+
+  return response.json();
+}
+
+async function submitWithWallet(proof) {
+  const wallet = getWalletApi();
+  const publicKey = await getWalletPublicKey(wallet);
+
+  const proofBuild = await postJson("/api/build-proof-xdr", { publicKey });
+  if (!proofBuild.ok) return proofBuild;
+
+  els.submitResult.textContent = "Please sign the Groth16 proof verification transaction.";
+  const signedProofXdr = await signWalletTransaction(wallet, proofBuild.xdr, publicKey);
+  const proofSubmit = await postJson("/api/submit-signed", {
+    signedXdr: signedProofXdr,
+    expected: "groth16",
+  });
+  if (!proofSubmit.ok) return proofSubmit;
+  if (proofSubmit.output !== true) {
+    return {
+      ok: false,
+      message: "Groth16 verifier rejected the wallet-signed proof transaction.",
+    };
+  }
+
+  const attestationBuild = await postJson("/api/build-attestation-xdr", {
+    publicKey,
+    proofFields: proof,
+  });
+  if (!attestationBuild.ok) return attestationBuild;
+
+  els.submitResult.textContent = "Please sign the compliance attestation transaction.";
+  const signedAttestationXdr = await signWalletTransaction(
+    wallet,
+    attestationBuild.xdr,
+    publicKey
+  );
+  const attestationSubmit = await postJson("/api/submit-signed", {
+    signedXdr: signedAttestationXdr,
+    expected: "attestation",
+  });
+  if (!attestationSubmit.ok) return attestationSubmit;
+
+  return {
+    ok: true,
+    signerMode: "wallet",
+    groth16Verified: true,
+    groth16Output: true,
+    groth16TxUrl: proofSubmit.txUrl,
+    txUrl: attestationSubmit.txUrl,
+  };
+}
+
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return response.json();
+}
+
+function getWalletApi() {
+  const wallet = window.freighterApi || window.freighter;
+  if (!wallet) {
+    throw new Error("Freighter wallet was not found. Install Freighter or use Hosted signer.");
+  }
+  return wallet;
+}
+
+async function getWalletPublicKey(wallet) {
+  if (wallet.requestAccess) {
+    const access = await wallet.requestAccess();
+    return typeof access === "string" ? access : access.address || access.publicKey;
+  }
+  if (wallet.getPublicKey) {
+    const value = await wallet.getPublicKey();
+    return typeof value === "string" ? value : value.address || value.publicKey;
+  }
+  throw new Error("Wallet does not expose a public key method.");
+}
+
+async function signWalletTransaction(wallet, xdr, publicKey) {
+  const options = {
+    networkPassphrase: "Test SDF Network ; September 2015",
+    network: "TESTNET",
+    accountToSign: publicKey,
+    address: publicKey,
+  };
+
+  if (wallet.signTransaction) {
+    const signed = await wallet.signTransaction(xdr, options);
+    return typeof signed === "string" ? signed : signed.signedTxXdr || signed.xdr;
+  }
+
+  throw new Error("Wallet does not expose signTransaction.");
 }
 
 function renderExplorerReceipt(result) {
