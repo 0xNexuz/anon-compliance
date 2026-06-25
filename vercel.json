@@ -1,21 +1,12 @@
 {
-  "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/api/config",
-      "destination": "/api/config"
+      "source": "/",
+      "destination": "/frontend/index.html"
     },
     {
-      "source": "/api/status",
-      "destination": "/api/status"
-    },
-    {
-      "source": "/api/submit",
-      "destination": "/api/submit"
-    },
-    {
-      "source": "/assets/(.*)",
-      "destination": "/frontend/assets/$1"
+      "source": "/assets/:path*",
+      "destination": "/frontend/assets/:path*"
     },
     {
       "source": "/styles.css",
@@ -26,7 +17,7 @@
       "destination": "/frontend/app.js"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/frontend/index.html"
     }
   ]

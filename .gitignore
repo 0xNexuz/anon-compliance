@@ -5,3 +5,5 @@
 /work/zk-export/target/
 *.wasm
 *.log
+
+.vercel
