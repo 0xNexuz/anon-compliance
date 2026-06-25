@@ -31,13 +31,13 @@ export const NETWORK_PASSPHRASE = Networks.TESTNET;
 const artifactPath = (...parts) => path.join(process.cwd(), ...parts);
 
 const GROTH16_VK_PATH =
-  process.env.GROTH16_VK_PATH || artifactPath("work", "zk-export", "out", "vk.json");
+  process.env.GROTH16_VK_PATH || artifactPath("api", "zk-artifacts", "vk.json");
 const GROTH16_PROOF_PATH =
   process.env.GROTH16_PROOF_PATH ||
-  artifactPath("work", "zk-export", "out", "proof.json");
+  artifactPath("api", "zk-artifacts", "proof.json");
 const GROTH16_PUBLIC_PATH =
   process.env.GROTH16_PUBLIC_PATH ||
-  artifactPath("work", "zk-export", "out", "public.json");
+  artifactPath("api", "zk-artifacts", "public.json");
 
 export function isHex32(value) {
   return typeof value === "string" && /^[0-9a-fA-F]{64}$/.test(value);
