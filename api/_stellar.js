@@ -10,6 +10,7 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import fs from "node:fs";
+import path from "node:path";
 
 export const CONTRACT_ID =
   process.env.CONTRACT_ID ||
@@ -27,11 +28,16 @@ export const RPC_URL =
   process.env.STELLAR_RPC_URL || "https://soroban-testnet.stellar.org";
 export const NETWORK_PASSPHRASE = Networks.TESTNET;
 
-const GROTH16_VK_PATH = process.env.GROTH16_VK_PATH || "work/zk-export/out/vk.json";
+const artifactPath = (...parts) => path.join(process.cwd(), ...parts);
+
+const GROTH16_VK_PATH =
+  process.env.GROTH16_VK_PATH || artifactPath("work", "zk-export", "out", "vk.json");
 const GROTH16_PROOF_PATH =
-  process.env.GROTH16_PROOF_PATH || "work/zk-export/out/proof.json";
+  process.env.GROTH16_PROOF_PATH ||
+  artifactPath("work", "zk-export", "out", "proof.json");
 const GROTH16_PUBLIC_PATH =
-  process.env.GROTH16_PUBLIC_PATH || "work/zk-export/out/public.json";
+  process.env.GROTH16_PUBLIC_PATH ||
+  artifactPath("work", "zk-export", "out", "public.json");
 
 export function isHex32(value) {
   return typeof value === "string" && /^[0-9a-fA-F]{64}$/.test(value);
