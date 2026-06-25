@@ -9,8 +9,11 @@ import {
   scValToNative,
   xdr,
 } from "@stellar/stellar-sdk";
-import fs from "node:fs";
-import path from "node:path";
+import {
+  GROTH16_PROOF,
+  GROTH16_PUBLIC_SIGNALS,
+  GROTH16_VK,
+} from "./zk-artifacts.js";
 
 export const CONTRACT_ID =
   process.env.CONTRACT_ID ||
@@ -27,17 +30,6 @@ export const VERIFIER_HASH =
 export const RPC_URL =
   process.env.STELLAR_RPC_URL || "https://soroban-testnet.stellar.org";
 export const NETWORK_PASSPHRASE = Networks.TESTNET;
-
-const artifactPath = (...parts) => path.join(process.cwd(), ...parts);
-
-const GROTH16_VK_PATH =
-  process.env.GROTH16_VK_PATH || artifactPath("api", "zk-artifacts", "vk.json");
-const GROTH16_PROOF_PATH =
-  process.env.GROTH16_PROOF_PATH ||
-  artifactPath("api", "zk-artifacts", "proof.json");
-const GROTH16_PUBLIC_PATH =
-  process.env.GROTH16_PUBLIC_PATH ||
-  artifactPath("api", "zk-artifacts", "public.json");
 
 export function isHex32(value) {
   return typeof value === "string" && /^[0-9a-fA-F]{64}$/.test(value);
@@ -68,9 +60,9 @@ function vec(items) {
 }
 
 export function loadGroth16Args() {
-  const vk = JSON.parse(fs.readFileSync(GROTH16_VK_PATH, "utf8"));
-  const proof = JSON.parse(fs.readFileSync(GROTH16_PROOF_PATH, "utf8"));
-  const pubSignals = JSON.parse(fs.readFileSync(GROTH16_PUBLIC_PATH, "utf8"));
+  const vk = GROTH16_VK;
+  const proof = GROTH16_PROOF;
+  const pubSignals = GROTH16_PUBLIC_SIGNALS;
 
   return {
     vk: struct({
