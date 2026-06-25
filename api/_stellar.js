@@ -17,7 +17,7 @@ import {
 
 export const CONTRACT_ID =
   process.env.CONTRACT_ID ||
-  "CBNKFAG67RWIW3DJTVDQUHRVS44KKDDBOJ52XH64ZTHP5R57TOYKUQNN";
+  "CCNCJ7KJTRPLPBV4VZNX22JKXFHUCKGCCUUQSD6GYENMMVX32YD4JB2E";
 export const GROTH16_CONTRACT_ID =
   process.env.GROTH16_CONTRACT_ID ||
   "CDL5QA45XIHBWNHMYHSVZTUMS4SIDKKUFLJAOTILU55R6HDC22SDFAC5";
@@ -121,6 +121,19 @@ export async function buildComplianceTransaction(publicKey, proofFields) {
   );
 }
 
+export async function buildRegulatedActionTransaction(publicKey, actionFields) {
+  const contract = new Contract(CONTRACT_ID);
+  return buildPreparedTransaction(
+    publicKey,
+    contract.call(
+      "execute_action",
+      nativeToScVal(publicKey, { type: "address" }),
+      bytes(actionFields.nullifier),
+      bytes(actionFields.actionHash)
+    )
+  );
+}
+
 export async function signAndSubmit(preparedTx, secretKey) {
   const keypair = Keypair.fromSecret(secretKey);
   preparedTx.sign(keypair);
@@ -168,6 +181,16 @@ export function validateProofFields(body) {
     if (!isHex32(body[field])) {
       return `${field} must be 32 bytes of hex.`;
     }
+  }
+  return null;
+}
+
+export function validateActionFields(body) {
+  if (!isHex32(body?.nullifier)) {
+    return "nullifier must be 32 bytes of hex.";
+  }
+  if (!isHex32(body?.actionHash)) {
+    return "actionHash must be 32 bytes of hex.";
   }
   return null;
 }

@@ -17,12 +17,22 @@ pub struct ComplianceAttestation {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RegulatedAction {
+    pub actor: Address,
+    pub nullifier: BytesN<32>,
+    pub action_hash: BytesN<32>,
+    pub policy_hash: BytesN<32>,
+}
+
+#[contracttype]
 enum DataKey {
     Admin,
     PolicyHash,
     VerifierHash,
     UsedNullifier(BytesN<32>),
     Attestation(BytesN<32>),
+    Action(BytesN<32>),
 }
 
 #[contracterror]
@@ -34,6 +44,8 @@ pub enum Error {
     Unauthorized = 3,
     NullifierAlreadyUsed = 4,
     InvalidProof = 5,
+    MissingAttestation = 6,
+    ActionAlreadyExecuted = 7,
 }
 
 #[contractimpl]
@@ -139,6 +151,39 @@ impl AnonComplianceContract {
             .has(&DataKey::UsedNullifier(nullifier))
     }
 
+    pub fn execute_action(
+        env: Env,
+        actor: Address,
+        nullifier: BytesN<32>,
+        action_hash: BytesN<32>,
+    ) -> Result<RegulatedAction, Error> {
+        actor.require_auth();
+
+        let attestation: ComplianceAttestation = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Attestation(nullifier.clone()))
+            .ok_or(Error::MissingAttestation)?;
+
+        let action_key = DataKey::Action(nullifier.clone());
+        if env.storage().persistent().has(&action_key) {
+            return Err(Error::ActionAlreadyExecuted);
+        }
+
+        let action = RegulatedAction {
+            actor: actor.clone(),
+            nullifier: nullifier.clone(),
+            action_hash,
+            policy_hash: attestation.policy_hash,
+        };
+
+        env.storage().persistent().set(&action_key, &action);
+        env.events()
+            .publish((symbol_short!("unlock"), actor, nullifier), &action);
+
+        Ok(action)
+    }
+
     pub fn get_attestation(
         env: Env,
         nullifier: BytesN<32>,
@@ -146,6 +191,10 @@ impl AnonComplianceContract {
         env.storage()
             .persistent()
             .get(&DataKey::Attestation(nullifier))
+    }
+
+    pub fn get_action(env: Env, nullifier: BytesN<32>) -> Option<RegulatedAction> {
+        env.storage().persistent().get(&DataKey::Action(nullifier))
     }
 
     pub fn policy_hash(env: Env) -> Result<BytesN<32>, Error> {

@@ -47,6 +47,8 @@ The contract stores:
 - `policy_hash`: hash of the current compliance policy
 - `verifier_hash`: identifier/commitment for the verifier circuit
 - used `nullifier`s to prevent replay
+- `attestation`s keyed by nullifier
+- one executed regulated `action` per nullifier
 
 Users call `submit_compliance` with:
 
@@ -57,6 +59,16 @@ Users call `submit_compliance` with:
 
 If verification passes and the nullifier was not used, the contract records the
 attestation and emits an event.
+
+After attestation, users call `execute_action` with:
+
+- `actor`: wallet authorizing the regulated action
+- `nullifier`: the already-attested nullifier
+- `action_hash`: hash of the action being unlocked, such as compliant transfer,
+  RWA subscription, or settlement release
+
+The contract rejects action execution if no attestation exists, and it prevents
+the same nullifier from unlocking more than one action.
 
 ## Testnet
 
@@ -96,10 +108,10 @@ and a verifier hash. Then submit a proof/nullifier pair.
 
 Current testnet deployment:
 
-- Contract: `CBNKFAG67RWIW3DJTVDQUHRVS44KKDDBOJ52XH64ZTHP5R57TOYKUQNN`
+- Contract: `CCNCJ7KJTRPLPBV4VZNX22JKXFHUCKGCCUUQSD6GYENMMVX32YD4JB2E`
 - Policy hash: `1111111111111111111111111111111111111111111111111111111111111111`
 - Verifier hash: `2222222222222222222222222222222222222222222222222222222222222222`
-- Stellar Lab: <https://lab.stellar.org/r/testnet/contract/CBNKFAG67RWIW3DJTVDQUHRVS44KKDDBOJ52XH64ZTHP5R57TOYKUQNN>
+- Stellar Lab: <https://lab.stellar.org/r/testnet/contract/CCNCJ7KJTRPLPBV4VZNX22JKXFHUCKGCCUUQSD6GYENMMVX32YD4JB2E>
 
 ## Frontend demo
 
@@ -121,10 +133,10 @@ The frontend includes:
 - live contract config/status reads
 - client-side demo proof generation
 - hosted-signer submission that first calls the deployed Groth16 verifier
-  contract, then invokes the Stellar testnet compliance contract
+  contract, then invokes the Stellar testnet compliance contract and action gate
 - wallet-signing endpoints that build XDR for Freighter-style wallets
-- explorer links for both the proof verification transaction and compliance
-  attestation transaction
+- explorer links for proof verification, compliance attestation, and regulated
+  action unlock transactions
 
 The local backend expects Stellar CLI at:
 
@@ -162,7 +174,7 @@ generated, tested, and deployed.
 1. Generate Stellar-compatible BLS12-381 Groth16 artifacts for the compliance
    circuit spec.
 2. Add a browser or backend prover that produces proof data from private inputs.
-3. Gate a mock regulated transfer or tokenized RWA action behind the compliance
-   attestation.
+3. Replace the hosted demo signer with a production custody model or require
+   wallet signing only.
 4. Record a 2-3 minute demo showing the proof generated off-chain and verified
    on Stellar testnet.

@@ -14,6 +14,7 @@ const els = {
   generateProof: document.querySelector("#generate-proof"),
   proofForm: document.querySelector("#proof-form"),
   policyChoice: document.querySelector("#policy-choice"),
+  actionChoice: document.querySelector("#action-choice"),
   subjectNote: document.querySelector("#subject-note"),
   kycPassed: document.querySelector("#kyc-passed"),
   sanctionsClear: document.querySelector("#sanctions-clear"),
@@ -23,10 +24,15 @@ const els = {
   publicInputHash: document.querySelector("#public-input-hash"),
   nullifier: document.querySelector("#nullifier"),
   proofHash: document.querySelector("#proof-hash"),
+  actionHash: document.querySelector("#action-hash"),
   submitResult: document.querySelector("#submit-result"),
   explorerReceipt: document.querySelector("#explorer-receipt"),
   proofTxLink: document.querySelector("#proof-tx-link"),
   attestationTxLink: document.querySelector("#attestation-tx-link"),
+  actionTxLink: document.querySelector("#action-tx-link"),
+  stepProof: document.querySelector("#step-proof"),
+  stepAttestation: document.querySelector("#step-attestation"),
+  stepAction: document.querySelector("#step-action"),
 };
 
 let currentProof = null;
@@ -42,6 +48,7 @@ els.refreshStatus.addEventListener("click", refreshStatus);
 els.generateProof.addEventListener("click", generateProof);
 els.proofForm.addEventListener("submit", submitProof);
 els.policyChoice.addEventListener("change", generateProof);
+els.actionChoice.addEventListener("change", generateProof);
 els.subjectNote.addEventListener("input", debounce(generateProof, 250));
 els.kycPassed.addEventListener("change", generateProof);
 els.sanctionsClear.addEventListener("change", generateProof);
@@ -139,17 +146,22 @@ async function generateProof() {
       config.verifierHash,
     ])
   );
+  const actionHash = await sha256Hex(
+    utf8(`action:${els.actionChoice.value}:nullifier:${nullifier}:policy:${config.policyHash}`)
+  );
 
   currentProof = {
     subjectCommitment,
     publicInputHash,
     nullifier,
     proofHash,
+    actionHash,
     eligible,
   };
 
   renderProof(currentProof);
   els.explorerReceipt.hidden = true;
+  resetLadder();
   setResult(
     eligible
       ? "Proof generated locally. Ready to submit to Stellar testnet."
@@ -168,6 +180,7 @@ async function submitProof(event) {
 
   const mode = [...els.signingMode].find((input) => input.checked)?.value || "serverless";
   setBusy(true);
+  resetLadder();
   setResult(
     mode === "wallet"
       ? "Preparing wallet-signed Stellar transactions..."
@@ -191,8 +204,11 @@ async function submitProof(event) {
     return;
   }
 
+  markStep("proof");
+  markStep("attestation");
+  markStep("action");
   setResult(
-    `Groth16 verified: ${result.groth16Output}. Attestation accepted on testnet.`,
+    `Groth16 verified: ${result.groth16Output}. Attestation accepted and regulated action unlocked on Stellar testnet.`,
     "success"
   );
   renderExplorerReceipt(result);
@@ -228,6 +244,7 @@ async function submitWithWallet(proof) {
       message: "Groth16 verifier rejected the wallet-signed proof transaction.",
     };
   }
+  markStep("proof");
 
   const attestationBuild = await postJson("/api/build-attestation-xdr", {
     publicKey,
@@ -246,6 +263,25 @@ async function submitWithWallet(proof) {
     expected: "attestation",
   });
   if (!attestationSubmit.ok) return attestationSubmit;
+  markStep("attestation");
+
+  const actionBuild = await postJson("/api/build-action-xdr", {
+    publicKey,
+    actionFields: {
+      nullifier: proof.nullifier,
+      actionHash: proof.actionHash,
+    },
+  });
+  if (!actionBuild.ok) return actionBuild;
+
+  setResult("Please sign the regulated action unlock transaction.");
+  const signedActionXdr = await signWalletTransaction(wallet, actionBuild.xdr, publicKey);
+  const actionSubmit = await postJson("/api/submit-signed", {
+    signedXdr: signedActionXdr,
+    expected: "action",
+  });
+  if (!actionSubmit.ok) return actionSubmit;
+  markStep("action");
 
   return {
     ok: true,
@@ -254,6 +290,7 @@ async function submitWithWallet(proof) {
     groth16Output: true,
     groth16TxUrl: proofSubmit.txUrl,
     txUrl: attestationSubmit.txUrl,
+    actionTxUrl: actionSubmit.txUrl,
   };
 }
 
@@ -319,7 +356,15 @@ function renderExplorerReceipt(result) {
     els.attestationTxLink.hidden = true;
   }
 
-  els.explorerReceipt.hidden = !result.groth16TxUrl && !result.txUrl;
+  if (result.actionTxUrl) {
+    els.actionTxLink.href = result.actionTxUrl;
+    els.actionTxLink.textContent = "Regulated action unlock tx";
+    els.actionTxLink.hidden = false;
+  } else {
+    els.actionTxLink.hidden = true;
+  }
+
+  els.explorerReceipt.hidden = !result.groth16TxUrl && !result.txUrl && !result.actionTxUrl;
 }
 
 function renderProof(proof) {
@@ -327,6 +372,7 @@ function renderProof(proof) {
   els.publicInputHash.textContent = proof.publicInputHash;
   els.nullifier.textContent = proof.nullifier;
   els.proofHash.textContent = proof.proofHash;
+  els.actionHash.textContent = proof.actionHash;
 }
 
 function setBusy(isBusy) {
@@ -339,6 +385,21 @@ function setResult(message, state = "") {
   els.submitResult.textContent = message.trim();
   els.submitResult.classList.toggle("success", state === "success");
   els.submitResult.classList.toggle("error", state === "error");
+}
+
+function resetLadder() {
+  [els.stepProof, els.stepAttestation, els.stepAction].forEach((step) => {
+    step.classList.remove("is-done");
+  });
+}
+
+function markStep(stepName) {
+  const map = {
+    proof: els.stepProof,
+    attestation: els.stepAttestation,
+    action: els.stepAction,
+  };
+  map[stepName]?.classList.add("is-done");
 }
 
 async function fetchJson(url) {

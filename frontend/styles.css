@@ -614,6 +614,50 @@ select {
   font-size: 13px;
 }
 
+.tx-ladder {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tx-ladder li {
+  position: relative;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 12px 12px 42px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.tx-ladder li::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translateY(-50%);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.tx-ladder li.is-done {
+  border-color: color-mix(in srgb, var(--forest), transparent 55%);
+  color: var(--forest);
+}
+
+.tx-ladder li.is-done::before {
+  border-color: var(--forest);
+  background: var(--forest);
+  box-shadow: inset 0 0 0 3px var(--surface-strong);
+}
+
 code {
   overflow-wrap: anywhere;
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -675,7 +719,7 @@ code {
 
 .readiness-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   margin-top: 34px;
 }
@@ -758,7 +802,7 @@ code {
 
 .docs-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 18px;
   margin-top: 34px;
 }

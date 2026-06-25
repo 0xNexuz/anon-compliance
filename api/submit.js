@@ -1,8 +1,10 @@
 import {
   buildComplianceTransaction,
   buildGroth16Transaction,
+  buildRegulatedActionTransaction,
   groth16ReturnValue,
   signAndSubmit,
+  validateActionFields,
   validateProofFields,
 } from "./_stellar.js";
 
@@ -22,6 +24,8 @@ export default async function handler(request, response) {
 
   const error = validateProofFields(request.body || {});
   if (error) return response.status(400).json({ ok: false, message: error });
+  const actionError = validateActionFields(request.body || {});
+  if (actionError) return response.status(400).json({ ok: false, message: actionError });
 
   try {
     const publicKey = (await import("@stellar/stellar-sdk")).Keypair.fromSecret(
@@ -47,6 +51,9 @@ export default async function handler(request, response) {
       process.env.STELLAR_SECRET_KEY
     );
 
+    const actionTx = await buildRegulatedActionTransaction(publicKey, request.body);
+    const actionResult = await signAndSubmit(actionTx, process.env.STELLAR_SECRET_KEY);
+
     return response.status(200).json({
       ok: true,
       signerMode: "serverless",
@@ -54,7 +61,9 @@ export default async function handler(request, response) {
       groth16Output,
       groth16TxUrl: groth16Result.explorerUrl,
       txUrl: complianceResult.explorerUrl,
+      actionTxUrl: actionResult.explorerUrl,
       nullifier: request.body.nullifier,
+      actionHash: request.body.actionHash,
     });
   } catch (error) {
     return response.status(500).json({

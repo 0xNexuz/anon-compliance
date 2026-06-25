@@ -13,7 +13,7 @@ const STELLAR_EXE =
   process.env.STELLAR_EXE || "C:\\Program Files (x86)\\Stellar CLI\\stellar.exe";
 const CONTRACT_ID =
   process.env.CONTRACT_ID ||
-  "CBNKFAG67RWIW3DJTVDQUHRVS44KKDDBOJ52XH64ZTHP5R57TOYKUQNN";
+  "CCNCJ7KJTRPLPBV4VZNX22JKXFHUCKGCCUUQSD6GYENMMVX32YD4JB2E";
 const GROTH16_CONTRACT_ID =
   process.env.GROTH16_CONTRACT_ID ||
   "CDL5QA45XIHBWNHMYHSVZTUMS4SIDKKUFLJAOTILU55R6HDC22SDFAC5";
@@ -53,6 +53,15 @@ async function readBody(req) {
 
 function isHex32(value) {
   return typeof value === "string" && /^[0-9a-fA-F]{64}$/.test(value);
+}
+
+async function sourceAddress() {
+  const { stdout } = await execFileAsync(
+    STELLAR_EXE,
+    ["keys", "public-key", SOURCE_ACCOUNT],
+    { timeout: 30000, windowsHide: true }
+  );
+  return stdout.trim();
 }
 
 function sleep(ms) {
@@ -192,6 +201,9 @@ async function handleApi(req, res) {
           return json(res, 400, { ok: false, message: `${field} must be 32 bytes of hex.` });
         }
       }
+      if (!isHex32(body.actionHash)) {
+        return json(res, 400, { ok: false, message: "actionHash must be 32 bytes of hex." });
+      }
 
       const groth16 = await invokeGroth16Verifier();
       if (!groth16.verified) {
@@ -215,6 +227,18 @@ async function handleApi(req, res) {
       ]);
 
       const txMatch = result.stderr.match(/https:\/\/stellar\.expert\/explorer\/testnet\/tx\/[0-9a-f]+/);
+      const actor = await sourceAddress();
+      const action = await invokeContract([
+        "execute_action",
+        "--actor",
+        actor,
+        "--nullifier",
+        body.nullifier,
+        "--action_hash",
+        body.actionHash,
+      ]);
+
+      const actionTxMatch = action.stderr.match(/https:\/\/stellar\.expert\/explorer\/testnet\/tx\/[0-9a-f]+/);
       return json(res, 200, {
         ok: true,
         groth16Verified: true,
@@ -222,9 +246,11 @@ async function handleApi(req, res) {
         groth16TxUrl: groth16.txUrl,
         groth16Attempts: groth16.attempts,
         submitAttempts: result.attempts,
+        actionAttempts: action.attempts,
         stdout: result.stdout.trim(),
-        logs: result.stderr.trim(),
+        logs: `${result.stderr.trim()}\n${action.stderr.trim()}`.trim(),
         txUrl: txMatch ? txMatch[0] : null,
+        actionTxUrl: actionTxMatch ? actionTxMatch[0] : null,
       });
     } catch (error) {
       return json(res, 500, {

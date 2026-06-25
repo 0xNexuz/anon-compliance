@@ -40,6 +40,7 @@
           <div class="trust-strip" aria-label="Build status">
             <span>Stellar testnet live</span>
             <span>Groth16 verifier call</span>
+            <span>Action unlock tx</span>
             <span>Explorer receipts</span>
           </div>
           <div class="hero-actions">
@@ -83,8 +84,8 @@
           </article>
           <article>
             <span>03</span>
-            <h3>Contract verifies</h3>
-            <p>Stellar records a nullifier and attestation only after verification passes.</p>
+            <h3>Action unlocks</h3>
+            <p>After attestation, the contract records a one-time regulated action unlock.</p>
           </article>
         </div>
       </section>
@@ -148,6 +149,14 @@
               Private subject note
               <input id="subject-note" value="demo-user-001" maxlength="64" autocomplete="off" />
             </label>
+            <label>
+              Regulated action
+              <select id="action-choice">
+                <option value="usdc-transfer">Unlock compliant USDC transfer</option>
+                <option value="rwa-subscription">Unlock RWA subscription</option>
+                <option value="settlement-release">Release institutional settlement</option>
+              </select>
+            </label>
             <div class="criteria-grid" aria-label="Private compliance criteria">
               <label>
                 <input id="kyc-passed" type="checkbox" checked />
@@ -192,11 +201,21 @@
               <span>Proof hash</span>
               <code id="proof-hash">waiting</code>
             </div>
+            <div class="hash-row">
+              <span>Action hash</span>
+              <code id="action-hash">waiting</code>
+            </div>
+            <ol class="tx-ladder" aria-label="Submission sequence">
+              <li id="step-proof">Groth16 proof verification</li>
+              <li id="step-attestation">Compliance attestation</li>
+              <li id="step-action">Regulated action unlock</li>
+            </ol>
             <div id="submit-result" class="submit-result" aria-live="polite">Generate a proof to begin.</div>
             <div id="explorer-receipt" class="explorer-receipt" hidden>
               <span>Explorer receipt</span>
               <a id="proof-tx-link" target="_blank" rel="noreferrer">Proof verification tx</a>
               <a id="attestation-tx-link" target="_blank" rel="noreferrer">Compliance attestation tx</a>
+              <a id="action-tx-link" target="_blank" rel="noreferrer">Regulated action tx</a>
             </div>
           </div>
         </div>
@@ -216,7 +235,12 @@
           <article class="ready-card pass">
             <span>Live now</span>
             <h3>Explorer audit trail</h3>
-            <p>Every successful run returns separate links for proof verification and attestation.</p>
+            <p>Every successful run returns separate links for proof verification, attestation, and action unlock.</p>
+          </article>
+          <article class="ready-card pass">
+            <span>Live now</span>
+            <h3>Gated action</h3>
+            <p>The Soroban contract rejects action unlocks unless a matching compliance attestation exists.</p>
           </article>
           <article class="ready-card warn">
             <span>Next step</span>
@@ -287,6 +311,14 @@
             <p>
               If verification passes, AnonCompliance records a nullifier and
               compliance attestation on Stellar testnet.
+            </p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Unlock regulated action</h3>
+            <p>
+              The updated contract executes a one-time action unlock only after
+              the attestation exists, then returns a third explorer receipt.
             </p>
           </article>
         </div>
