@@ -309,7 +309,7 @@ async function postJson(url, body) {
 }
 
 function getWalletApi() {
-  const wallet = window.freighterApi || window.freighter;
+  const wallet = window.freighterApi || window.freighter || window.freighterApi?.default;
   if (!wallet) {
     throw new Error(
       "Freighter was not found in this browser. Open the site in Chrome/Brave with the Freighter extension installed, or use Hosted signer."
@@ -347,6 +347,11 @@ async function getWalletPublicKey(wallet) {
   if (wallet.isAllowed) {
     const allowed = await wallet.isAllowed();
     const isAllowed = typeof allowed === "boolean" ? allowed : allowed?.isAllowed;
+    if (!isAllowed && wallet.setAllowed) {
+      const grant = await wallet.setAllowed();
+      const grantError = extractWalletError(grant);
+      if (grantError) throw new Error(grantError);
+    }
     if (!isAllowed && wallet.requestAccess) {
       const access = await wallet.requestAccess();
       const accessAddress = readWalletAddress(access);
