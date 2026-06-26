@@ -309,13 +309,9 @@ async function postJson(url, body) {
 }
 
 function getWalletApi() {
-  const wallet = window.freighterApi || window.freighter || window.freighterApi?.default;
-  if (!wallet) {
-    throw new Error(
-      "Freighter was not found in this browser. Open the site in Chrome/Brave with the Freighter extension installed, or use Hosted signer."
-    );
-  }
-  return wallet;
+  const candidates = [window.freighterApi, window.freighterApi?.default, window.freighter];
+  const wallet = candidates.find(hasWalletMethods);
+  return wallet || createFreighterBridge();
 }
 
 async function connectWallet() {
@@ -427,6 +423,113 @@ function setWalletStatus(message, state = "") {
 
 function shortKey(publicKey) {
   return `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`;
+}
+
+function hasWalletMethods(wallet) {
+  return (
+    wallet &&
+    typeof wallet === "object" &&
+    (wallet.signTransaction || wallet.getAddress || wallet.requestAccess || wallet.isConnected)
+  );
+}
+
+function createFreighterBridge() {
+  return {
+    async isConnected() {
+      const response = await freighterRequest("REQUEST_CONNECTION_STATUS");
+      return {
+        isConnected: Boolean(response.isConnected),
+        error: response.apiError,
+      };
+    },
+    async isAllowed() {
+      const response = await freighterRequest("REQUEST_ALLOWED_STATUS");
+      return {
+        isAllowed: Boolean(response.isAllowed),
+        error: response.apiError,
+      };
+    },
+    async setAllowed() {
+      const response = await freighterRequest("SET_ALLOWED_STATUS", {}, 30000);
+      return {
+        isAllowed: Boolean(response.isAllowed),
+        error: response.apiError,
+      };
+    },
+    async requestAccess() {
+      const response = await freighterRequest("REQUEST_ACCESS", {}, 30000);
+      return {
+        address: response.publicKey || response.address || "",
+        publicKey: response.publicKey || response.address || "",
+        error: response.apiError,
+      };
+    },
+    async getAddress() {
+      const response = await freighterRequest("REQUEST_PUBLIC_KEY");
+      return {
+        address: response.publicKey || response.address || "",
+        publicKey: response.publicKey || response.address || "",
+        error: response.apiError,
+      };
+    },
+    async signTransaction(transactionXdr, options) {
+      const response = await freighterRequest(
+        "SUBMIT_TRANSACTION",
+        {
+          transactionXdr,
+          networkPassphrase: options?.networkPassphrase,
+          accountToSign: options?.address || options?.accountToSign,
+        },
+        60000
+      );
+      return {
+        signedTxXdr: response.signedTransaction || response.signedTxXdr || "",
+        signerAddress: response.signerAddress || "",
+        error: response.apiError,
+      };
+    },
+  };
+}
+
+function freighterRequest(type, payload = {}, timeoutMs = 5000) {
+  const messageId = Date.now() + Math.random();
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", onMessage);
+      resolve({
+        apiError: {
+          message:
+            "Freighter did not respond to this page. Make sure the extension is enabled for this browser profile, unlock it, refresh the page, and approve site access.",
+        },
+      });
+    }, timeoutMs);
+
+    function onMessage(event) {
+      const data = event.data || {};
+      const responseId = data.messageId ?? data.messagedId;
+      if (
+        event.source === window &&
+        data.source === "FREIGHTER_EXTERNAL_MSG_RESPONSE" &&
+        responseId === messageId
+      ) {
+        clearTimeout(timer);
+        window.removeEventListener("message", onMessage);
+        resolve(data);
+      }
+    }
+
+    window.addEventListener("message", onMessage, false);
+    window.postMessage(
+      {
+        source: "FREIGHTER_EXTERNAL_MSG_REQUEST",
+        messageId,
+        type,
+        ...payload,
+      },
+      window.location.origin
+    );
+  });
 }
 
 function renderExplorerReceipt(result) {
