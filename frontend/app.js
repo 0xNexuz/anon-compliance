@@ -19,6 +19,8 @@ const els = {
   kycPassed: document.querySelector("#kyc-passed"),
   sanctionsClear: document.querySelector("#sanctions-clear"),
   signingMode: document.querySelectorAll("input[name='signing-mode']"),
+  connectWallet: document.querySelector("#connect-wallet"),
+  walletStatus: document.querySelector("#wallet-status"),
   submitButton: document.querySelector("#proof-form button[type='submit']"),
   subjectCommitment: document.querySelector("#subject-commitment"),
   publicInputHash: document.querySelector("#public-input-hash"),
@@ -36,6 +38,7 @@ const els = {
 };
 
 let currentProof = null;
+let connectedWalletPublicKey = "";
 
 hydrateConfig();
 bindThemeToggle();
@@ -46,6 +49,7 @@ await generateProof();
 
 els.refreshStatus.addEventListener("click", refreshStatus);
 els.generateProof.addEventListener("click", generateProof);
+els.connectWallet.addEventListener("click", connectWallet);
 els.proofForm.addEventListener("submit", submitProof);
 els.policyChoice.addEventListener("change", generateProof);
 els.actionChoice.addEventListener("change", generateProof);
@@ -226,7 +230,8 @@ async function submitWithHostedSigner(proof) {
 
 async function submitWithWallet(proof) {
   const wallet = getWalletApi();
-  const publicKey = await getWalletPublicKey(wallet);
+  const publicKey = connectedWalletPublicKey || (await getWalletPublicKey(wallet));
+  setWalletStatus(`Connected: ${shortKey(publicKey)}`, "success");
 
   const proofBuild = await postJson("/api/build-proof-xdr", { publicKey });
   if (!proofBuild.ok) return proofBuild;
@@ -306,21 +311,76 @@ async function postJson(url, body) {
 function getWalletApi() {
   const wallet = window.freighterApi || window.freighter;
   if (!wallet) {
-    throw new Error("Freighter wallet was not found. Install Freighter or use Hosted signer.");
+    throw new Error(
+      "Freighter was not found in this browser. Open the site in Chrome/Brave with the Freighter extension installed, or use Hosted signer."
+    );
   }
   return wallet;
 }
 
-async function getWalletPublicKey(wallet) {
-  if (wallet.requestAccess) {
-    const access = await wallet.requestAccess();
-    return typeof access === "string" ? access : access.address || access.publicKey;
+async function connectWallet() {
+  els.connectWallet.disabled = true;
+  setWalletStatus("Connecting to Freighter...");
+
+  try {
+    const wallet = getWalletApi();
+    const publicKey = await getWalletPublicKey(wallet);
+    connectedWalletPublicKey = publicKey;
+    setWalletStatus(`Connected: ${shortKey(publicKey)}`, "success");
+  } catch (error) {
+    setWalletStatus(error.message, "error");
+  } finally {
+    els.connectWallet.disabled = false;
   }
+}
+
+async function getWalletPublicKey(wallet) {
+  if (wallet.isConnected) {
+    const connected = await wallet.isConnected();
+    const isConnected =
+      typeof connected === "boolean" ? connected : connected?.isConnected ?? !connected?.error;
+    if (!isConnected) {
+      throw new Error(extractWalletError(connected) || "Freighter is installed but not connected.");
+    }
+  }
+
+  if (wallet.isAllowed) {
+    const allowed = await wallet.isAllowed();
+    const isAllowed = typeof allowed === "boolean" ? allowed : allowed?.isAllowed;
+    if (!isAllowed && wallet.requestAccess) {
+      const access = await wallet.requestAccess();
+      const accessAddress = readWalletAddress(access);
+      if (accessAddress) return accessAddress;
+      const accessError = extractWalletError(access);
+      if (accessError) throw new Error(accessError);
+    }
+  }
+
+  if (wallet.getAddress) {
+    const value = await wallet.getAddress();
+    const address = readWalletAddress(value);
+    if (address) return address;
+    const addressError = extractWalletError(value);
+    if (addressError) throw new Error(addressError);
+  }
+
   if (wallet.getPublicKey) {
     const value = await wallet.getPublicKey();
-    return typeof value === "string" ? value : value.address || value.publicKey;
+    const address = readWalletAddress(value);
+    if (address) return address;
+    const keyError = extractWalletError(value);
+    if (keyError) throw new Error(keyError);
   }
-  throw new Error("Wallet does not expose a public key method.");
+
+  if (wallet.requestAccess) {
+    const access = await wallet.requestAccess();
+    const address = readWalletAddress(access);
+    if (address) return address;
+    const accessError = extractWalletError(access);
+    if (accessError) throw new Error(accessError);
+  }
+
+  throw new Error("Freighter did not return a public key. Unlock the wallet and approve site access.");
 }
 
 async function signWalletTransaction(wallet, xdr, publicKey) {
@@ -333,10 +393,35 @@ async function signWalletTransaction(wallet, xdr, publicKey) {
 
   if (wallet.signTransaction) {
     const signed = await wallet.signTransaction(xdr, options);
-    return typeof signed === "string" ? signed : signed.signedTxXdr || signed.xdr;
+    const signedXdr =
+      typeof signed === "string" ? signed : signed?.signedTxXdr || signed?.xdr || signed?.result;
+    if (signedXdr) return signedXdr;
+    throw new Error(extractWalletError(signed) || "Freighter did not return a signed transaction.");
   }
 
   throw new Error("Wallet does not expose signTransaction.");
+}
+
+function readWalletAddress(value) {
+  if (typeof value === "string") return value;
+  return value?.address || value?.publicKey || value?.accountId || "";
+}
+
+function extractWalletError(value) {
+  if (!value) return "";
+  if (typeof value === "string") return "";
+  if (typeof value.error === "string") return value.error;
+  return value.error?.message || value.message || "";
+}
+
+function setWalletStatus(message, state = "") {
+  els.walletStatus.textContent = message;
+  els.walletStatus.classList.toggle("success", state === "success");
+  els.walletStatus.classList.toggle("error", state === "error");
+}
+
+function shortKey(publicKey) {
+  return `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`;
 }
 
 function renderExplorerReceipt(result) {

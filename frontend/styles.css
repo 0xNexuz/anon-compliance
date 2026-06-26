@@ -586,6 +586,37 @@ label {
   accent-color: var(--copper);
 }
 
+.wallet-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.wallet-panel p {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wallet-panel p.success {
+  border-color: color-mix(in srgb, var(--forest), transparent 56%);
+  color: var(--forest);
+}
+
+.wallet-panel p.error {
+  border-color: rgba(184, 71, 54, 0.34);
+  color: #8f2d22;
+}
+
+:root[data-theme="dark"] .wallet-panel p.error {
+  color: #ffb1a7;
+}
+
 input,
 select {
   width: 100%;
